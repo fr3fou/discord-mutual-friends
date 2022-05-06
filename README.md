@@ -2,8 +2,8 @@
 
 jank script and program for generating a .dot file for visualisation of mutual friends in Discord
 
-![](./graph.png)
 ![](./gephi.png)
+![](./graph.png)
 
 ```console
 $ chmod +x ./relationship.sh
