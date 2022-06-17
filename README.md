@@ -12,4 +12,11 @@ $ go mod download
 $ go run main.go > graph.dot # open in tools like Gephi 
 $ go run main.go | dot -Tsvg > graph.svg # open in browser / image viewer
 ```
+## TODO
 
+- [ ] Implement a Web API 
+  - [ ] Login with Discord
+  - [ ] Return the relationship graph from an endpoint
+- [ ] Frontend
+  - [ ] Login with Discord
+  - [ ] Visualise the graph, interactively
