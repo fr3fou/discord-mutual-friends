@@ -6,11 +6,9 @@ jank script and program for generating a .dot file for visualisation of mutual f
 ![](./graph.png)
 
 ```console
-$ chmod +x ./relationship.sh
-$ TOKEN=<discord-token-here> ./relationship.sh > graph.json
 $ go mod download 
-$ go run main.go > graph.dot # open in tools like Gephi 
-$ go run main.go | dot -Tsvg > graph.svg # open in browser / image viewer
+$ go run main.go # saves to a file called relationships.dot, which can be opened using Gephi or rendered to a .svg using Dot
+$ cat relationships.dot | dot -Tsvg > graph.svg # for example
 ```
 ## TODO
 
