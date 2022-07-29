@@ -44,7 +44,7 @@ func main() {
 func fetchRelationships(token string) (map[UserID][]UserID, []Relationship, error) {
 	client := &http.Client{}
 	log.Println("fetching @me relationships")
-	res, err := fetchDiscordEndpoint(*client, token, "GET", "https://discordapp.com/api/v6/users/@me/relationships")
+	res, err := fetchDiscordEndpoint(client, token, "GET", "https://discordapp.com/api/v6/users/@me/relationships")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -58,7 +58,7 @@ func fetchRelationships(token string) (map[UserID][]UserID, []Relationship, erro
 	graph := map[UserID][]UserID{}
 	for _, relationship := range myRelationships {
 		log.Println("fetching relationship", relationship.ID)
-		res, err := fetchDiscordEndpoint(*client, token, "GET", fmt.Sprintf("https://discordapp.com/api/v6/users/%s/relationships", relationship.ID))
+		res, err := fetchDiscordEndpoint(client, token, "GET", fmt.Sprintf("https://discordapp.com/api/v6/users/%s/relationships", relationship.ID))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -109,7 +109,7 @@ func buildGraph(m map[UserID][]UserID, myRelationships []Relationship) *dot.Grap
 	return g
 }
 
-func fetchDiscordEndpoint(client http.Client, token, method, endpoint string) (*http.Response, error) {
+func fetchDiscordEndpoint(client *http.Client, token, method, endpoint string) (*http.Response, error) {
 	req, err := http.NewRequest(method, endpoint, nil)
 	if err != nil {
 		return nil, err
