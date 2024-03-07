@@ -93,8 +93,7 @@ func fetchRelationships(token string) (map[UserID][]UserID, []Relationship, erro
 					//log.Println("Rate Limit:", time.Millisecond*time.Duration(rateLimit.RetryAfter*1000)+backOff)
 
 					backOff += time.Millisecond * 100
-					limit := time.Millisecond * time.Duration(rateLimit.RetryAfter*1000)
-					limit += backOff
+					limit := time.Millisecond*time.Duration(rateLimit.RetryAfter*1000) + backOff
 					time.Sleep(limit)
 					continue
 				}
