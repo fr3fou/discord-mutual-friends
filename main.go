@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/emicklei/dot"
 )
@@ -23,6 +26,12 @@ type User struct {
 	Avatar        string `json:"avatar"`
 	Discriminator string `json:"discriminator"`
 	PublicFlags   int64  `json:"public_flags"`
+}
+
+type RateLimit struct {
+	Message    string  `json:"message"`
+	RetryAfter float64 `json:"retry_after"`
+	Global     bool    `json:"global"`
 }
 
 type UserID string
@@ -52,20 +61,46 @@ func fetchRelationships(token string) (map[UserID][]UserID, []Relationship, erro
 	defer res.Body.Close()
 	myRelationships := []Relationship{}
 	if err := json.NewDecoder(res.Body).Decode(&myRelationships); err != nil {
+
 		return nil, nil, err
 	}
-
+	var backOff time.Duration
 	graph := map[UserID][]UserID{}
 	for _, relationship := range myRelationships {
 		log.Println("fetching relationship", relationship.ID)
-		res, err := fetchDiscordEndpoint(client, token, "GET", fmt.Sprintf("https://discordapp.com/api/v6/users/%s/relationships", relationship.ID))
-		if err != nil {
-			return nil, nil, err
-		}
 
 		theirRelationships := []Relationship{}
-		if err := json.NewDecoder(res.Body).Decode(&theirRelationships); err != nil {
-			return nil, nil, err
+
+		for {
+			res, err = fetchDiscordEndpoint(client, token, "GET", fmt.Sprintf("https://discordapp.com/api/v6/users/%s/relationships", relationship.ID))
+			if err != nil {
+				return nil, nil, err
+			}
+
+			data, err := io.ReadAll(res.Body)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			if err := json.Unmarshal(data, &theirRelationships); err != nil {
+
+				if bytes.Contains(data, []byte("retry_after")) {
+					rateLimit := RateLimit{}
+					if err := json.Unmarshal(data, &rateLimit); err != nil {
+						return nil, nil, err
+					}
+
+					//log.Println("Rate Limit:", time.Millisecond*time.Duration(rateLimit.RetryAfter*1000)+backOff)
+
+					backOff += time.Millisecond * 100
+					limit := time.Millisecond * time.Duration(rateLimit.RetryAfter*1000)
+					limit += backOff
+					time.Sleep(limit)
+					continue
+				}
+				return nil, nil, err
+			}
+			break
 		}
 
 		for _, theirRelationship := range theirRelationships {
