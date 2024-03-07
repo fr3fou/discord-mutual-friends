@@ -61,16 +61,14 @@ func fetchRelationships(token string) (map[UserID][]UserID, []Relationship, erro
 	defer res.Body.Close()
 	myRelationships := []Relationship{}
 	if err := json.NewDecoder(res.Body).Decode(&myRelationships); err != nil {
-
 		return nil, nil, err
 	}
+
 	var backOff time.Duration
 	graph := map[UserID][]UserID{}
 	for _, relationship := range myRelationships {
 		log.Println("fetching relationship", relationship.ID)
-
 		theirRelationships := []Relationship{}
-
 		for {
 			res, err = fetchDiscordEndpoint(client, token, "GET", fmt.Sprintf("https://discordapp.com/api/v6/users/%s/relationships", relationship.ID))
 			if err != nil {
@@ -82,24 +80,22 @@ func fetchRelationships(token string) (map[UserID][]UserID, []Relationship, erro
 				return nil, nil, err
 			}
 
-			if err := json.Unmarshal(data, &theirRelationships); err != nil {
+			if err := json.Unmarshal(data, &theirRelationships); err == nil {
+				break
+			}
 
-				if bytes.Contains(data, []byte("retry_after")) {
-					rateLimit := RateLimit{}
-					if err := json.Unmarshal(data, &rateLimit); err != nil {
-						return nil, nil, err
-					}
-
-					//log.Println("Rate Limit:", time.Millisecond*time.Duration(rateLimit.RetryAfter*1000)+backOff)
-
-					backOff += time.Millisecond * 100
-					limit := time.Millisecond*time.Duration(rateLimit.RetryAfter*1000) + backOff
-					time.Sleep(limit)
-					continue
-				}
+			if !bytes.Contains(data, []byte("retry_after")) {
 				return nil, nil, err
 			}
-			break
+
+			rateLimit := RateLimit{}
+			if err := json.Unmarshal(data, &rateLimit); err != nil {
+				return nil, nil, err
+			}
+
+			backOff = min(backOff+time.Millisecond*100, time.Second*5)
+			limit := time.Millisecond*time.Duration(rateLimit.RetryAfter*1000) + backOff
+			time.Sleep(limit)
 		}
 
 		for _, theirRelationship := range theirRelationships {
@@ -150,4 +146,11 @@ func fetchDiscordEndpoint(client *http.Client, token, method, endpoint string) (
 	}
 	req.Header.Add("authorization", token)
 	return client.Do(req)
+}
+
+func min(a time.Duration, b time.Duration) time.Duration {
+	if a < b {
+		return a
+	}
+	return b
 }
