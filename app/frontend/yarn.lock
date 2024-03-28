@@ -1961,6 +1961,11 @@ regenerator-runtime@^0.14.0:
   resolved "https://registry.yarnpkg.com/regenerator-runtime/-/regenerator-runtime-0.14.1.tgz#356ade10263f685dda125100cd862c1db895327f"
   integrity sha512-dYnhHh0nJoMfnkZs6GmmhFknAGRrLznOu5nc9ML+EJxGvrx6H7teuevqVqCuPcPK//3eDrrjQhehXVx9cnkGdw==
 
+remeda@^1.56.0:
+  version "1.56.0"
+  resolved "https://registry.yarnpkg.com/remeda/-/remeda-1.56.0.tgz#9eb5aa68df43cf7accb5730b49af38d9b65aca2c"
+  integrity sha512-ZGebbddlHYNIc4P6o6B/LRiUIZyuFvO9/aKxKpzzFjJxb9maUmYk5E72VpvAooh5uFw0rSbfygIV3rc49NW2xg==
+
 resolve@^1.1.7, resolve@^1.22.2:
   version "1.22.8"
   resolved "https://registry.yarnpkg.com/resolve/-/resolve-1.22.8.tgz#b6c87a9f2aa06dfab52e3d70ac8cde321fa5a48d"

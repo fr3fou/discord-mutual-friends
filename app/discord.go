@@ -18,6 +18,7 @@ type User struct {
 	Avatar        string `json:"avatar"`
 	Discriminator string `json:"discriminator"`
 	PublicFlags   int64  `json:"public_flags"`
+	User          *User  `json:"user"`
 }
 
 type RateLimit struct {
@@ -95,8 +96,8 @@ func fetchRelationships(token string, id string) ([]User, error) {
 }
 
 type Event struct {
-	ID            UserID
-	Relationships []User
+	ID            UserID `json:"id"`
+	Relationships []User `json:"relationships"`
 }
 
 func buildGraph(ctx context.Context, token string) (User, chan Event, error) {

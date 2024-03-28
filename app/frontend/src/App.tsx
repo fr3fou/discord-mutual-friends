@@ -1,22 +1,57 @@
 import "./App.css"
 import { BrowserOpenURL, EventsOn } from "../wailsjs/runtime"
 import { Start, Stop } from "../wailsjs/go/main/App"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { main } from "../wailsjs/go/models"
+import { ForceGraph2D } from "react-force-graph"
+import { uniqueBy } from "remeda"
 
 function App() {
   const [token, setToken] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
   const [me, setMe] = useState<main.User>()
+  const [nodes, setNodes] = useState<main.User[]>([])
+  const [links, setLinks] = useState<any[]>([])
+
+  const onRelationshipsFetched = useCallback(
+    (data: { id: string; relationships: main.User[] }) => {
+      setNodes((nodes) =>
+        uniqueBy(
+          [
+            ...nodes,
+            ...data.relationships.map(
+              (relationship) =>
+                ({
+                  ...relationship,
+                  ...(relationship.user && { ...relationship.user }),
+                }) as main.User,
+            ),
+          ],
+          (node) => node.id,
+        ),
+      )
+      if (!me?.id || data.id === me?.id) return
+      setLinks((links) => [
+        ...links,
+        ...data.relationships.map((relationship: main.User) => ({
+          source: data.id,
+          target: relationship.id,
+        })),
+      ])
+    },
+    [me?.id],
+  )
+
   useEffect(() => {
-    const cleanup = EventsOn("relationshipFetched", (data) => {
-      console.log(data)
-    })
+    const cleanup = EventsOn("relationshipFetched", onRelationshipsFetched)
     return () => cleanup()
-  }, [])
+  }, [me?.id])
+
   const onStopClick = async () => {
     await Stop()
+    setIsLoading(false)
   }
+
   const onStartClick = async () => {
     if (!token) return
     const response = await Start(token)
@@ -31,12 +66,20 @@ function App() {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen flex-col place-items-center justify-items-center bg-neutral-800 py-8">
-      <div className="flex-1 text-2xl font-bold text-neutral-50">
+    <div className="fixed flex min-h-screen flex-col place-items-center justify-items-center bg-neutral-800">
+      <div className="fixed top-5 z-10 flex-1 text-2xl font-bold text-white">
         <h1 className="content-center">Friends Visualiser</h1>
-        <pre>{JSON.stringify(me)}</pre>
       </div>
-      <div className="flex flex-col gap-2">
+      <ForceGraph2D
+        nodeLabel={(node) => node.username}
+        graphData={{
+          nodes: nodes.map((node) => ({
+            ...node,
+          })),
+          links: links.map((link) => ({ ...link })),
+        }}
+      />
+      <div className="fixed bottom-2 flex flex-col gap-2">
         <label
           htmlFor="small-input"
           className="flex items-center gap-1 text-sm font-medium text-gray-900 dark:text-white"
