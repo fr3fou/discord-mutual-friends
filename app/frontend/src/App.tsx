@@ -1,29 +1,41 @@
 import "./App.css"
 import { BrowserOpenURL, EventsOn } from "../wailsjs/runtime"
 import { Start, Stop } from "../wailsjs/go/main/App"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
+import SpriteText from "three-spritetext"
+import * as THREE from "three"
+
 import { main } from "../wailsjs/go/models"
-import { ForceGraph2D } from "react-force-graph"
-import { uniqueBy } from "remeda"
+import ForceGraph3D, { GraphData } from "react-force-graph-3d"
 
 function App() {
   const [token, setToken] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
   const [me, setMe] = useState<main.User>()
-  const [links, setLinks] = useState<any[]>([])
+  const [graphData, setGraphData] = useState<GraphData<main.Friend>>({
+    nodes: [],
+    links: [],
+  })
+  const [nodeVal, setNodeVal] = useState<Record<string, number>>({})
 
   useEffect(() => {
     const cleanup = EventsOn(
       "relationshipFetched",
-      (data: { id: string; relationships: string[] }) => {
-        console.log("data", data)
-        setLinks((links) => [
-          ...links,
-          ...data.relationships.map((relationship) => ({
-            source: data.id,
-            target: relationship,
-          })),
-        ])
+      (data: { id: string; relationships: string[]; index: number }) => {
+        setGraphData((graphData) => ({
+          ...graphData,
+          links: [
+            ...graphData.links,
+            ...data.relationships.map((relationship) => ({
+              source: data.id,
+              target: relationship,
+            })),
+          ],
+        }))
+        setNodeVal((nodeVal) => ({
+          ...nodeVal,
+          [data.id]: data.relationships.length,
+        }))
       },
     )
     return () => cleanup()
@@ -38,6 +50,10 @@ function App() {
     if (!token) return
     const response = await Start(token)
     setMe(response)
+    setGraphData((graphData) => ({
+      ...graphData,
+      nodes: response.friends ?? [],
+    }))
     setIsLoading(true)
   }
 
@@ -47,21 +63,44 @@ function App() {
     )
   }
 
-  console.log({ me })
-
   return (
-    <div className="fixed flex min-h-screen flex-col place-items-center justify-items-center bg-neutral-800">
-      <div className="fixed top-5 z-10 flex-1 text-2xl font-bold text-white">
+    <div className="fixed flex min-h-screen flex-col place-items-center justify-items-center dark:bg-neutral-800">
+      <div className="fixed top-5 z-10 flex-1 text-2xl font-bold text-gray-900 dark:text-white">
         <h1 className="content-center">Friends Visualiser</h1>
       </div>
-      <ForceGraph2D
-        nodeLabel={(node) => node.username}
-        graphData={{
-          nodes:
-            me?.friends.map((node) => ({
-              ...node,
-            })) ?? [],
-          links: links.map((link) => ({ ...link })),
+      <ForceGraph3D
+        backgroundColor="#262626"
+        showNavInfo={false}
+        nodeLabel={(node) => node.user.username}
+        nodeVal={(node) => nodeVal[node.id]}
+        graphData={graphData}
+        nodeAutoColorBy={(node: main.Friend) =>
+          nodeVal[node.id] as unknown as string
+        }
+        nodeVisibility={(node) => node.type === 1 && nodeVal[node.id] > 0}
+        nodeThreeObject={(node: main.Friend) => {
+          // Load the image texture
+          const imgTexture = new THREE.TextureLoader().load(
+            `https://cdn.discordapp.com/avatars/${node.user.id}/${node.user.avatar}.png`,
+          )
+          imgTexture.colorSpace = THREE.SRGBColorSpace
+
+          // Create image sprite
+          const imgMaterial = new THREE.SpriteMaterial({ map: imgTexture })
+          const imgSprite = new THREE.Sprite(imgMaterial)
+
+          // Scale the image sprite to a fixed size
+          const imgSize = nodeVal[node.id] * 3
+          imgSprite.scale.set(imgSize, imgSize, 1)
+
+          // Position the image sprite relative to the text sprite
+          imgSprite.position.set(
+            // sprite.textHeight / 2 + imgSize / 2 + padding,
+            0,
+            0,
+            0,
+          )
+          return imgSprite
         }}
       />
       <div className="fixed bottom-2 flex flex-col gap-2">
