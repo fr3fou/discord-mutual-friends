@@ -10,40 +10,22 @@ function App() {
   const [token, setToken] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
   const [me, setMe] = useState<main.User>()
-  const [nodes, setNodes] = useState<main.User[]>([])
   const [links, setLinks] = useState<any[]>([])
 
-  const onRelationshipsFetched = useCallback(
-    (data: { id: string; relationships: main.User[] }) => {
-      setNodes((nodes) =>
-        uniqueBy(
-          [
-            ...nodes,
-            ...data.relationships.map(
-              (relationship) =>
-                ({
-                  ...relationship,
-                  ...(relationship.user && { ...relationship.user }),
-                }) as main.User,
-            ),
-          ],
-          (node) => node.id,
-        ),
-      )
-      if (!me?.id || data.id === me?.id) return
-      setLinks((links) => [
-        ...links,
-        ...data.relationships.map((relationship: main.User) => ({
-          source: data.id,
-          target: relationship.id,
-        })),
-      ])
-    },
-    [me?.id],
-  )
-
   useEffect(() => {
-    const cleanup = EventsOn("relationshipFetched", onRelationshipsFetched)
+    const cleanup = EventsOn(
+      "relationshipFetched",
+      (data: { id: string; relationships: string[] }) => {
+        console.log("data", data)
+        setLinks((links) => [
+          ...links,
+          ...data.relationships.map((relationship) => ({
+            source: data.id,
+            target: relationship,
+          })),
+        ])
+      },
+    )
     return () => cleanup()
   }, [me?.id])
 
@@ -65,6 +47,8 @@ function App() {
     )
   }
 
+  console.log({ me })
+
   return (
     <div className="fixed flex min-h-screen flex-col place-items-center justify-items-center bg-neutral-800">
       <div className="fixed top-5 z-10 flex-1 text-2xl font-bold text-white">
@@ -73,9 +57,10 @@ function App() {
       <ForceGraph2D
         nodeLabel={(node) => node.username}
         graphData={{
-          nodes: nodes.map((node) => ({
-            ...node,
-          })),
+          nodes:
+            me?.friends.map((node) => ({
+              ...node,
+            })) ?? [],
           links: links.map((link) => ({ ...link })),
         }}
       />

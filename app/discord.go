@@ -12,13 +12,19 @@ import (
 )
 
 type User struct {
-	ID            string `json:"id"`
-	Username      string `json:"username"`
-	GlobalName    string `json:"global_name"`
-	Avatar        string `json:"avatar"`
-	Discriminator string `json:"discriminator"`
-	PublicFlags   int64  `json:"public_flags"`
-	User          *User  `json:"user"`
+	ID            UserID   `json:"id"`
+	Username      string   `json:"username"`
+	GlobalName    string   `json:"global_name"`
+	Avatar        string   `json:"avatar"`
+	Discriminator string   `json:"discriminator"`
+	PublicFlags   int64    `json:"public_flags"`
+	Friends       []Friend `json:"friends,omitempty"`
+}
+
+type Friend struct {
+	ID   UserID `json:"id"`
+	Type int    `json:"type"`
+	User User   `json:"user"`
 }
 
 type RateLimit struct {
@@ -58,7 +64,7 @@ func fetchMe(token string) (User, error) {
 	return user, nil
 }
 
-func fetchRelationships(token string, id string) ([]User, error) {
+func fetchRelationships(token string, id UserID) ([]Friend, error) {
 	retries := 0
 	var backOff time.Duration
 	for retries < 8 {
@@ -73,9 +79,9 @@ func fetchRelationships(token string, id string) ([]User, error) {
 		}
 		res.Body.Close()
 
-		var relationships []User
-		if err := json.Unmarshal(data, &relationships); err == nil {
-			return relationships, nil
+		var friends []Friend
+		if err := json.Unmarshal(data, &friends); err == nil {
+			return friends, nil
 		}
 
 		if !bytes.Contains(data, []byte("retry_after")) {
@@ -96,8 +102,8 @@ func fetchRelationships(token string, id string) ([]User, error) {
 }
 
 type Event struct {
-	ID            UserID `json:"id"`
-	Relationships []User `json:"relationships"`
+	ID            UserID   `json:"id"`
+	Relationships []UserID `json:"relationships"`
 }
 
 func buildGraph(ctx context.Context, token string) (User, chan Event, error) {
@@ -106,18 +112,15 @@ func buildGraph(ctx context.Context, token string) (User, chan Event, error) {
 		return User{}, nil, err
 	}
 
+	friends, err := fetchRelationships(token, "@me")
+	if err != nil {
+		return User{}, nil, err
+	}
+
 	ch := make(chan Event)
 	go func() {
 		defer close(ch)
-		log.Println("fetching @me relationships")
-		myRelationships, err := fetchRelationships(token, "@me")
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		ch <- Event{ID: UserID(me.ID), Relationships: myRelationships}
-
-		for _, relationship := range myRelationships {
+		for _, relationship := range friends {
 			select {
 			case <-ctx.Done():
 				return
@@ -128,10 +131,17 @@ func buildGraph(ctx context.Context, token string) (User, chan Event, error) {
 					log.Println(err)
 					return
 				}
-				ch <- Event{ID: UserID(relationship.ID), Relationships: theirRelationships}
+
+				relationships := []UserID{}
+				for _, theirRelationship := range theirRelationships {
+					relationships = append(relationships, theirRelationship.ID)
+				}
+				ch <- Event{ID: relationship.ID, Relationships: relationships}
 			}
 		}
 	}()
+
+	me.Friends = friends
 
 	return me, ch, nil
 }
