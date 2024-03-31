@@ -44,13 +44,6 @@ func fetchDiscordEndpoint(token, method, endpoint string) (*http.Response, error
 	return http.DefaultClient.Do(req)
 }
 
-func min(a time.Duration, b time.Duration) time.Duration {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func fetchMe(token string) (User, error) {
 	res, err := fetchDiscordEndpoint(token, "GET", "https://discordapp.com/api/v9/users/@me")
 	if err != nil {
@@ -104,6 +97,8 @@ func fetchRelationships(token string, id UserID) ([]Friend, error) {
 type Event struct {
 	ID            UserID   `json:"id"`
 	Relationships []UserID `json:"relationships"`
+	Index         int      `json:"index"`
+	Total         int      `json:"total"`
 }
 
 func buildGraph(ctx context.Context, token string) (User, chan Event, error) {
@@ -120,7 +115,7 @@ func buildGraph(ctx context.Context, token string) (User, chan Event, error) {
 	ch := make(chan Event)
 	go func() {
 		defer close(ch)
-		for _, relationship := range friends {
+		for i, relationship := range friends {
 			select {
 			case <-ctx.Done():
 				return
@@ -136,7 +131,8 @@ func buildGraph(ctx context.Context, token string) (User, chan Event, error) {
 				for _, theirRelationship := range theirRelationships {
 					relationships = append(relationships, theirRelationship.ID)
 				}
-				ch <- Event{ID: relationship.ID, Relationships: relationships}
+				ch <- Event{ID: relationship.ID, Relationships: relationships, Index: i, Total: len(friends)}
+				i++
 			}
 		}
 	}()
