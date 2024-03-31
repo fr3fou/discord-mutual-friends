@@ -8,7 +8,7 @@ import { main } from "../wailsjs/go/models"
 import ForceGraph3D, {
   ForceGraphMethods,
   GraphData,
-  NodeObject,
+  NodeObject
 } from "react-force-graph-3d"
 
 interface User extends main.User {
@@ -37,7 +37,7 @@ const physics = {
   velocityDecay: 0.25,
   gravity: 0.3,
   gravityOn: true,
-  gravityLocal: false,
+  gravityLocal: false
 }
 
 type Status = "waiting" | "loading" | "finished"
@@ -48,11 +48,11 @@ function App() {
   const [me, setMe] = useState<main.User>()
   const [graphData, setGraphData] = useState<GraphData<Node>>({
     nodes: [],
-    links: [],
+    links: []
   })
   const [progress, setProgress] = useState<{ total: number; index: number }>({
     index: 0,
-    total: 0,
+    total: 0
   })
   const graphRef = useRef<ForceGraphMethods<NodeObject<Node>> | undefined>()
   const [nodeLinks, setNodeLinks] = useState<Record<string, string[]>>({})
@@ -72,23 +72,23 @@ function App() {
             ...graphData.links,
             ...data.relationships.map((relationship) => ({
               source: data.id,
-              target: relationship,
-            })),
-          ],
+              target: relationship
+            }))
+          ]
         }))
         setNodeLinks((nodeVal) => ({
           ...nodeVal,
-          [data.id]: data.relationships,
+          [data.id]: data.relationships
         }))
         setProgress({
           index: data.index,
-          total: data.total,
+          total: data.total
         })
         if (data.index >= data.total) {
           setStatus("finished")
           graphRef.current?.resumeAnimation()
         }
-      },
+      }
     )
     return () => cleanup()
   }, [me?.id])
@@ -103,7 +103,7 @@ function App() {
     const response = await Start(token)
     setMe(response)
     setGraphData((graphData) => ({
-      ...graphData,
+      links: [],
       nodes:
         response.friends?.map((friend) => {
           const id = BigInt(friend.user.id)
@@ -154,7 +154,7 @@ function App() {
         "collide",
         physics.collision
           ? d3.forceCollide().radius(physics.collisionStrength)
-          : null,
+          : null
       )
     })()
   }, [physics])
@@ -164,6 +164,16 @@ function App() {
       <div className="fixed top-5 z-10 flex-1 text-2xl font-bold text-gray-900 dark:text-white">
         <h1 className="content-center">Friends Visualiser</h1>
       </div>
+      {status === "loading" && (
+        <div className="w-full h-full z-20 fixed flex items-center justify-center flex-col gap-4">
+          <h1 className="text-white content-center text-4xl text-center w-full">
+            Loading...
+          </h1>
+          <p className="w-full text-center text-white">
+            {progress.index}/{progress.total}
+          </p>
+        </div>
+        )}
       <ForceGraph3D
         ref={graphRef}
         warmupTicks={20}
@@ -273,11 +283,6 @@ function App() {
             >
               Stop
             </button>
-          )}
-          {status === "loading" && (
-            <p className="w-full text-center text-white">
-              {progress.index}/{progress.total}
-            </p>
           )}
         </div>
       </div>
