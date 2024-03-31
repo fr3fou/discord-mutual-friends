@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -43,6 +42,13 @@ func fetchDiscordEndpoint(token, method, endpoint string) (*http.Response, error
 	}
 	req.Header.Add("authorization", token)
 	return http.DefaultClient.Do(req)
+}
+
+func min(a time.Duration, b time.Duration) time.Duration {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func fetchMe(token string) (User, error) {
@@ -98,7 +104,6 @@ func fetchRelationships(token string, id UserID) ([]Friend, error) {
 type Event struct {
 	ID            UserID   `json:"id"`
 	Relationships []UserID `json:"relationships"`
-	Index         int      `json:"index"`
 }
 
 func buildGraph(ctx context.Context, token string) (User, chan Event, error) {
@@ -107,54 +112,31 @@ func buildGraph(ctx context.Context, token string) (User, chan Event, error) {
 		return User{}, nil, err
 	}
 
-	//friends, err := fetchRelationships(token, "@me")
-	//if err != nil {
-	//	return User{}, nil, err
-	//}
-
-	friendsFile, err := os.ReadFile("./friends.json")
+	friends, err := fetchRelationships(token, "@me")
 	if err != nil {
-		return User{}, nil, err
-	}
-
-	friends := []Friend{}
-	if err := json.Unmarshal(friendsFile, &friends); err != nil {
 		return User{}, nil, err
 	}
 
 	ch := make(chan Event)
 	go func() {
-		relationshipsFile, err := os.ReadFile("./relationships.json")
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
-		allRelationships := map[UserID][]UserID{}
-		if err := json.Unmarshal(relationshipsFile, &allRelationships); err != nil {
-			log.Println(err)
-			return
-		}
-
 		defer close(ch)
-		for k, v := range allRelationships {
+		for _, relationship := range friends {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				log.Println("fetching relationship", k)
-				//theirRelationships, err := fetchRelationships(token, relationship.ID)
-				//if err != nil {
-				//	log.Println(err)
-				//	return
-				//}
-				//
-				relationships := []UserID{}
-				for _, theirRelationship := range v {
-					relationships = append(relationships, theirRelationship)
+				log.Println("fetching relationship", relationship.ID)
+				theirRelationships, err := fetchRelationships(token, relationship.ID)
+				if err != nil {
+					log.Println(err)
+					return
 				}
-				time.Sleep(time.Millisecond * 50)
-				ch <- Event{ID: k, Relationships: relationships}
+
+				relationships := []UserID{}
+				for _, theirRelationship := range theirRelationships {
+					relationships = append(relationships, theirRelationship.ID)
+				}
+				ch <- Event{ID: relationship.ID, Relationships: relationships}
 			}
 		}
 	}()
