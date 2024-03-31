@@ -39,6 +39,7 @@ const physics = {
   gravityOn: true,
   gravityLocal: false,
 }
+
 type Status = "waiting" | "loading" | "finished"
 
 function App() {
@@ -131,11 +132,12 @@ function App() {
   }
 
   const [highlightLinks, setHighlightLinks] = useState(new Set())
-  const [hoverNode, setHoverNode] = useState<string>()
+  const [hoverNode, setHoverNode] = useState<string | null>()
 
   const updateHighlight = () => {
     setHighlightLinks(highlightLinks)
   }
+
   useEffect(() => {
     ;(async () => {
       const fg = graphRef.current
@@ -155,7 +157,7 @@ function App() {
           : null,
       )
     })()
-  }, [])
+  }, [physics])
 
   return (
     <div className="fixed flex min-h-screen flex-col place-items-center justify-items-center dark:bg-neutral-800">
@@ -178,19 +180,29 @@ function App() {
         nodeVal={(node) => nodeLinks[node.id]?.length}
         graphData={graphData}
         nodeVisibility={(node) => node.type === 1}
-        onNodeHover={(node) => {
+        onNodeClick={(node) => {
           highlightLinks.clear()
-          if (node) {
-            nodeLinks[node.id]?.forEach((link) => highlightLinks.add(link))
+
+          if (node?.id === hoverNode) {
+            setHoverNode(null)
+            return
           }
 
-          setHoverNode(node?.id)
-          updateHighlight()
+          if (node) {
+            nodeLinks[node.id]?.forEach((link) => highlightLinks.add(link))
+            setHoverNode(node?.id || null)
+            updateHighlight()
+          }
+        }}
+        onBackgroundClick={() => {
+          highlightLinks.clear()
+          setHoverNode(null)
         }}
         linkWidth={(link) => {
           const target = link.target as Node
-          return hoverNode === target.id ? 1 : 0.01
+          return hoverNode === target.id ? 0.5 : 0.01
         }}
+        linkCurvature={0.2}
         nodeThreeObject={(node) => {
           const imgTexture = new THREE.TextureLoader().load(node.user.url ?? "")
           imgTexture.colorSpace = THREE.SRGBColorSpace
@@ -199,6 +211,7 @@ function App() {
           const imgMaterial = new THREE.SpriteMaterial({ map: imgTexture })
           const imgSprite = new THREE.Sprite(imgMaterial)
           const isHovered = node.id === hoverNode
+
           imgMaterial.opacity =
             highlightLinks.size > 0
               ? isLinkedToCurrent || isHovered
@@ -209,8 +222,8 @@ function App() {
           const imgSize =
             10 + nodeLinks[node.id]?.length * 1.5 + (isHovered ? 12 : 0)
           imgSprite.scale.set(imgSize, imgSize, 1)
-
           imgSprite.position.set(0, 0, 0)
+          imgSprite.visible = true
           return imgSprite
         }}
       />
