@@ -1,6 +1,6 @@
 {
-  "name": "app",
-  "outputfilename": "app",
+  "name": "Discord Friends Visualiser",
+  "outputfilename": "DiscordFriends",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
