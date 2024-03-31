@@ -8,5 +8,10 @@
   "author": {
     "name": "Simo",
     "email": "maikati@simo.sh"
+  },
+  "bindings": {
+    "ts_generation": {
+      "outputType": "interfaces"
+    }
   }
 }
