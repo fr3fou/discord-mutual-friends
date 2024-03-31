@@ -11,8 +11,6 @@ import ForceGraph3D, {
   NodeObject,
 } from "react-force-graph-3d"
 
-const NODE_R = 8
-
 interface User extends main.User {
   url?: string
 }
@@ -20,6 +18,9 @@ interface User extends main.User {
 interface Node extends main.Friend {
   user: User
 }
+
+// @ts-ignore
+const d3promise = import("d3-force-3d")
 
 function App() {
   const [token, setToken] = useState<string>("")
@@ -100,6 +101,12 @@ function App() {
     setHighlightNodes(highlightNodes)
     setHighlightLinks(highlightLinks)
   }
+  useEffect(() => {
+    ;(async () => {
+      const d3 = await d3promise
+      graphRef?.current?.d3Force("collide", d3.forceCollide(2))
+    })()
+  }, [])
 
   return (
     <div className="fixed flex min-h-screen flex-col place-items-center justify-items-center dark:bg-neutral-800">
@@ -118,16 +125,12 @@ function App() {
         showNavInfo={false}
         nodeResolution={3}
         nodeLabel={(node) => node.user.username}
+        nodeRelSize={25}
         nodeVal={(node) => nodeLinks[node.id]?.length}
         graphData={graphData}
-        nodeVisibility={(node) => {
-          if (hoverNode) {
-            const isLinkedToCurrent = highlightLinks.has(node.id)
-            return node.id === hoverNode || isLinkedToCurrent
-          }
-
-          return node.type === 1 && nodeLinks[node.id]?.length > 0
-        }}
+        nodeVisibility={(node) =>
+          node.type === 1 && nodeLinks[node.id]?.length > 0
+        }
         onNodeHover={(node) => {
           highlightLinks.clear()
           if (node) {
@@ -155,7 +158,7 @@ function App() {
             highlightLinks.size > 0
               ? isLinkedToCurrent || isHovered
                 ? 1
-                : 0
+                : 0.1
               : 1
 
           // Scale the image sprite to a fixed size
