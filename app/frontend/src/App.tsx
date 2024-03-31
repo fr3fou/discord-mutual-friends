@@ -22,13 +22,36 @@ interface Node extends main.Friend {
 // @ts-ignore
 const d3promise = import("d3-force-3d")
 
+const physics = {
+  enabled: true,
+  charge: -700,
+  collision: true,
+  collisionStrength: 20,
+  centering: true,
+  centeringStrength: 0.2,
+  linkStrength: 0.3,
+  linkIts: 1,
+  alphaDecay: 0.05,
+  alphaTarget: 0,
+  alphaMin: 0,
+  velocityDecay: 0.25,
+  gravity: 0.3,
+  gravityOn: true,
+  gravityLocal: false,
+}
+type Status = "waiting" | "loading" | "finished"
+
 function App() {
   const [token, setToken] = useState<string>("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [status, setStatus] = useState<Status>("waiting")
   const [me, setMe] = useState<main.User>()
   const [graphData, setGraphData] = useState<GraphData<Node>>({
     nodes: [],
     links: [],
+  })
+  const [progress, setProgress] = useState<{ total: number; index: number }>({
+    index: 0,
+    total: 0,
   })
   const graphRef = useRef<ForceGraphMethods<NodeObject<Node>> | undefined>()
   const [nodeLinks, setNodeLinks] = useState<Record<string, string[]>>({})
@@ -36,7 +59,12 @@ function App() {
   useEffect(() => {
     const cleanup = EventsOn(
       "relationshipFetched",
-      (data: { id: string; relationships: string[]; index: number }) => {
+      (data: {
+        id: string
+        relationships: string[]
+        index: number
+        total: number
+      }) => {
         setGraphData((graphData) => ({
           ...graphData,
           links: [
@@ -51,6 +79,14 @@ function App() {
           ...nodeVal,
           [data.id]: data.relationships,
         }))
+        setProgress({
+          index: data.index,
+          total: data.total,
+        })
+        if (data.index >= data.total) {
+          setStatus("finished")
+          graphRef.current?.resumeAnimation()
+        }
       },
     )
     return () => cleanup()
@@ -58,7 +94,7 @@ function App() {
 
   const onStopClick = async () => {
     await Stop()
-    setIsLoading(false)
+    setStatus("waiting")
   }
 
   const onStartClick = async () => {
@@ -84,7 +120,8 @@ function App() {
           }
         }) ?? [],
     }))
-    setIsLoading(true)
+    graphRef.current?.pauseAnimation()
+    setStatus("loading")
   }
 
   const onQuestionClick = () => {
@@ -93,18 +130,30 @@ function App() {
     )
   }
 
-  const [highlightNodes, setHighlightNodes] = useState(new Set())
   const [highlightLinks, setHighlightLinks] = useState(new Set())
   const [hoverNode, setHoverNode] = useState<string>()
 
   const updateHighlight = () => {
-    setHighlightNodes(highlightNodes)
     setHighlightLinks(highlightLinks)
   }
   useEffect(() => {
     ;(async () => {
+      const fg = graphRef.current
+      if (!fg) return
       const d3 = await d3promise
-      graphRef?.current?.d3Force("collide", d3.forceCollide(2))
+      fg.d3Force("x", d3.forceX().strength(physics.gravity))
+      fg.d3Force("y", d3.forceY().strength(physics.gravity))
+      fg.d3Force("z", d3.forceZ().strength(physics.gravity))
+      fg.d3Force("center", d3.forceCenter().strength(physics.centeringStrength))
+      fg.d3Force("link")?.strength(physics.linkStrength)
+      fg.d3Force("link")?.iterations(physics.linkIts)
+      fg.d3Force("charge")?.strength(physics.charge)
+      fg.d3Force(
+        "collide",
+        physics.collision
+          ? d3.forceCollide().radius(physics.collisionStrength)
+          : null,
+      )
     })()
   }, [])
 
@@ -122,15 +171,13 @@ function App() {
         linkOpacity={0.8}
         enableNodeDrag={false}
         backgroundColor="#262626"
-        showNavInfo={false}
+        showNavInfo
         nodeResolution={3}
         nodeLabel={(node) => node.user.username}
         nodeRelSize={25}
         nodeVal={(node) => nodeLinks[node.id]?.length}
         graphData={graphData}
-        nodeVisibility={(node) =>
-          node.type === 1 && nodeLinks[node.id]?.length > 0
-        }
+        nodeVisibility={(node) => node.type === 1}
         onNodeHover={(node) => {
           highlightLinks.clear()
           if (node) {
@@ -145,12 +192,10 @@ function App() {
           return hoverNode === target.id ? 1 : 0.01
         }}
         nodeThreeObject={(node) => {
-          // Load the image texture
           const imgTexture = new THREE.TextureLoader().load(node.user.url ?? "")
           imgTexture.colorSpace = THREE.SRGBColorSpace
           const isLinkedToCurrent = highlightLinks.has(node.id)
 
-          // Create image sprite
           const imgMaterial = new THREE.SpriteMaterial({ map: imgTexture })
           const imgSprite = new THREE.Sprite(imgMaterial)
           const isHovered = node.id === hoverNode
@@ -161,7 +206,6 @@ function App() {
                 : 0.1
               : 1
 
-          // Scale the image sprite to a fixed size
           const imgSize =
             10 + nodeLinks[node.id]?.length * 1.5 + (isHovered ? 12 : 0)
           imgSprite.scale.set(imgSize, imgSize, 1)
@@ -170,7 +214,7 @@ function App() {
           return imgSprite
         }}
       />
-      <div className="fixed bottom-2 flex flex-col gap-2">
+      <div className="fixed bottom-5 flex flex-col gap-2">
         <label
           htmlFor="small-input"
           className="flex items-center gap-1 text-sm font-medium text-gray-900 dark:text-white"
@@ -201,20 +245,26 @@ function App() {
           className="block w-full rounded-lg border border-neutral-300 bg-neutral-50 p-2 text-xs text-neutral-900 focus:border-neutral-500 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-700 dark:text-white dark:placeholder-neutral-400 dark:focus:border-neutral-500 dark:focus:ring-neutral-500"
         />
         <div className="self-center">
-          <button
-            disabled={isLoading}
-            onClick={onStartClick}
-            className="mb-2 me-2 rounded-lg bg-gray-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:border-gray-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:focus:ring-gray-700"
-          >
-            Start
-          </button>
-          {isLoading && (
+          {status === "waiting" && (
+            <button
+              onClick={onStartClick}
+              className="mb-2 me-2 rounded-lg bg-gray-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:border-gray-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:focus:ring-gray-700"
+            >
+              Start
+            </button>
+          )}
+          {status === "loading" && (
             <button
               onClick={onStopClick}
               className="mb-2 me-2 rounded-lg bg-gray-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-300 dark:border-gray-700 dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:focus:ring-gray-700"
             >
               Stop
             </button>
+          )}
+          {status === "loading" && (
+            <p className="w-full text-center text-white">
+              {progress.index}/{progress.total}
+            </p>
           )}
         </div>
       </div>
