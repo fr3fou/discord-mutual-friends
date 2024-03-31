@@ -1,22 +1,36 @@
 import "./App.css"
 import { BrowserOpenURL, EventsOn } from "../wailsjs/runtime"
 import { Start, Stop } from "../wailsjs/go/main/App"
-import { useEffect, useState } from "react"
-import SpriteText from "three-spritetext"
+import { useEffect, useRef, useState } from "react"
 import * as THREE from "three"
 
 import { main } from "../wailsjs/go/models"
-import ForceGraph3D, { GraphData } from "react-force-graph-3d"
+import ForceGraph3D, {
+  ForceGraphMethods,
+  GraphData,
+  NodeObject,
+} from "react-force-graph-3d"
+
+const NODE_R = 8
+
+interface User extends main.User {
+  url?: string
+}
+
+interface Node extends main.Friend {
+  user: User
+}
 
 function App() {
   const [token, setToken] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
   const [me, setMe] = useState<main.User>()
-  const [graphData, setGraphData] = useState<GraphData<main.Friend>>({
+  const [graphData, setGraphData] = useState<GraphData<Node>>({
     nodes: [],
     links: [],
   })
-  const [nodeVal, setNodeVal] = useState<Record<string, number>>({})
+  const graphRef = useRef<ForceGraphMethods<NodeObject<Node>> | undefined>()
+  const [nodeLinks, setNodeLinks] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
     const cleanup = EventsOn(
@@ -32,9 +46,9 @@ function App() {
             })),
           ],
         }))
-        setNodeVal((nodeVal) => ({
+        setNodeLinks((nodeVal) => ({
           ...nodeVal,
-          [data.id]: data.relationships.length,
+          [data.id]: data.relationships,
         }))
       },
     )
@@ -52,7 +66,22 @@ function App() {
     setMe(response)
     setGraphData((graphData) => ({
       ...graphData,
-      nodes: response.friends ?? [],
+      nodes:
+        response.friends?.map((friend) => {
+          const id = BigInt(friend.user.id)
+          const avatar = friend.user.avatar
+          const index = (id >> BigInt(22)) % BigInt(6)
+
+          return {
+            ...friend,
+            user: {
+              ...friend.user,
+              url: avatar
+                ? `https://cdn.discordapp.com/avatars/${friend.user.id}/${friend.user.avatar}.png`
+                : `https://cdn.discordapp.com/embed/avatars/${index}.png`,
+            },
+          }
+        }) ?? [],
     }))
     setIsLoading(true)
   }
@@ -63,43 +92,78 @@ function App() {
     )
   }
 
+  const [highlightNodes, setHighlightNodes] = useState(new Set())
+  const [highlightLinks, setHighlightLinks] = useState(new Set())
+  const [hoverNode, setHoverNode] = useState<string>()
+
+  const updateHighlight = () => {
+    setHighlightNodes(highlightNodes)
+    setHighlightLinks(highlightLinks)
+  }
+
   return (
     <div className="fixed flex min-h-screen flex-col place-items-center justify-items-center dark:bg-neutral-800">
       <div className="fixed top-5 z-10 flex-1 text-2xl font-bold text-gray-900 dark:text-white">
         <h1 className="content-center">Friends Visualiser</h1>
       </div>
       <ForceGraph3D
+        ref={graphRef}
+        warmupTicks={20}
+        d3AlphaDecay={0.25}
+        d3AlphaMin={0}
+        d3VelocityDecay={0.25}
+        linkOpacity={0.8}
+        enableNodeDrag={false}
         backgroundColor="#262626"
         showNavInfo={false}
+        nodeResolution={3}
         nodeLabel={(node) => node.user.username}
-        nodeVal={(node) => nodeVal[node.id]}
+        nodeVal={(node) => nodeLinks[node.id]?.length}
         graphData={graphData}
-        nodeAutoColorBy={(node: main.Friend) =>
-          nodeVal[node.id] as unknown as string
-        }
-        nodeVisibility={(node) => node.type === 1 && nodeVal[node.id] > 0}
-        nodeThreeObject={(node: main.Friend) => {
+        nodeVisibility={(node) => {
+          if (hoverNode) {
+            const isLinkedToCurrent = highlightLinks.has(node.id)
+            return node.id === hoverNode || isLinkedToCurrent
+          }
+
+          return node.type === 1 && nodeLinks[node.id]?.length > 0
+        }}
+        onNodeHover={(node) => {
+          highlightLinks.clear()
+          if (node) {
+            nodeLinks[node.id]?.forEach((link) => highlightLinks.add(link))
+          }
+
+          setHoverNode(node?.id)
+          updateHighlight()
+        }}
+        linkWidth={(link) => {
+          const target = link.target as Node
+          return hoverNode === target.id ? 1 : 0.01
+        }}
+        nodeThreeObject={(node) => {
           // Load the image texture
-          const imgTexture = new THREE.TextureLoader().load(
-            `https://cdn.discordapp.com/avatars/${node.user.id}/${node.user.avatar}.png`,
-          )
+          const imgTexture = new THREE.TextureLoader().load(node.user.url ?? "")
           imgTexture.colorSpace = THREE.SRGBColorSpace
+          const isLinkedToCurrent = highlightLinks.has(node.id)
 
           // Create image sprite
           const imgMaterial = new THREE.SpriteMaterial({ map: imgTexture })
           const imgSprite = new THREE.Sprite(imgMaterial)
+          const isHovered = node.id === hoverNode
+          imgMaterial.opacity =
+            highlightLinks.size > 0
+              ? isLinkedToCurrent || isHovered
+                ? 1
+                : 0
+              : 1
 
           // Scale the image sprite to a fixed size
-          const imgSize = nodeVal[node.id] * 3
+          const imgSize =
+            10 + nodeLinks[node.id]?.length * 1.5 + (isHovered ? 12 : 0)
           imgSprite.scale.set(imgSize, imgSize, 1)
 
-          // Position the image sprite relative to the text sprite
-          imgSprite.position.set(
-            // sprite.textHeight / 2 + imgSize / 2 + padding,
-            0,
-            0,
-            0,
-          )
+          imgSprite.position.set(0, 0, 0)
           return imgSprite
         }}
       />
