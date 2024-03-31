@@ -1,20 +1,26 @@
-# discord-mutual-friends
+## About
 
-jank script and program for generating a .dot file for visualisation of mutual friends in Discord
+Wails template which includes: Vite, React, TS, TailwindCSS out of the box.
 
-![](./gephi.png)
-![](./graph.png)
+Build with `Wails CLI v2.0.0`.
 
-```console
-$ go mod download 
-$ go run main.go # saves to a file called relationships.dot, which can be opened using Gephi or rendered to a .svg using Dot
-$ cat relationships.dot | dot -Tsvg > graph.svg # for example
+To use this [template](https://wails.io/docs/community/templates):
+```shell
+wails init -n "Your Project Name" -t https://github.com/hotafrika/wails-vite-react-ts-tailwind-template
+cd frontend/src
+npm install
 ```
-## TODO
 
-- [ ] Implement a Web API 
-  - [ ] Login with Discord
-  - [ ] Return the relationship graph from an endpoint
-- [ ] Frontend
-  - [ ] Login with Discord
-  - [ ] Visualise the graph, interactively
+[Here](scripts) you can find useful scripts for building on different platforms and Wails CLI installation.
+
+## Live Development
+
+To run in live development mode, run `wails dev` in the project directory. In another terminal, go into the `frontend`
+directory and run `npm run dev`. The frontend dev server will run on http://localhost:34115. Connect to this in your
+browser and connect to your application.
+
+## Building
+
+To build a redistributable, production mode package, use `wails build`.
+
+
