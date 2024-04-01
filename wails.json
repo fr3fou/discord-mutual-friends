@@ -1,0 +1,17 @@
+{
+  "name": "Discord Friends Visualiser",
+  "outputfilename": "DiscordFriends",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Simo",
+    "email": "maikati@simo.sh"
+  },
+  "bindings": {
+    "ts_generation": {
+      "outputType": "interfaces"
+    }
+  }
+}

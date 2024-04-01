@@ -1,156 +1,39 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-	"log"
-	"net/http"
-	"os"
-	"time"
-
-	"github.com/emicklei/dot"
+	"embed"
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
-type Relationship struct {
-	ID       string  `json:"id"`
-	Type     int64   `json:"type"`
-	Nickname *string `json:"nickname"`
-	User     User    `json:"user"`
-}
+//go:embed all:frontend/dist
+var assets embed.FS
 
-type User struct {
-	ID            string `json:"id"`
-	Username      string `json:"username"`
-	Avatar        string `json:"avatar"`
-	Discriminator string `json:"discriminator"`
-	PublicFlags   int64  `json:"public_flags"`
-}
-
-type RateLimit struct {
-	Message    string  `json:"message"`
-	RetryAfter float64 `json:"retry_after"`
-	Global     bool    `json:"global"`
-}
-
-type UserID string
+//go:embed build/appicon.png
+var icon []byte
 
 func main() {
-	var token string
-	fmt.Println("enter your token:")
-	fmt.Scanln(&token)
-	m, v, err := fetchRelationships(token)
+	// Create an instance of the app structure
+	app := NewApp()
+
+	// Create application with options
+	err := wails.Run(&options.App{
+		Title:            "Discord Mutual Friends",
+		Width:            1280,
+		Height:           768,
+		DisableResize:    true,
+		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		AssetServer: &assetserver.Options{
+			Assets: assets,
+		},
+		OnStartup: app.startup,
+		Bind: []any{
+			app,
+		},
+	})
+
 	if err != nil {
-		panic(err)
+		println("Error:", err.Error())
 	}
-	g := buildGraph(m, v)
-	if err := os.WriteFile("relationships.dot", []byte(g.String()), 0644); err != nil {
-		panic(err)
-	}
-}
-
-func fetchRelationships(token string) (map[UserID][]UserID, []Relationship, error) {
-	client := &http.Client{}
-	log.Println("fetching @me relationships")
-	res, err := fetchDiscordEndpoint(client, token, "GET", "https://discordapp.com/api/v6/users/@me/relationships")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	defer res.Body.Close()
-	myRelationships := []Relationship{}
-	if err := json.NewDecoder(res.Body).Decode(&myRelationships); err != nil {
-		return nil, nil, err
-	}
-
-	var backOff time.Duration
-	graph := map[UserID][]UserID{}
-	for _, relationship := range myRelationships {
-		log.Println("fetching relationship", relationship.ID)
-		theirRelationships := []Relationship{}
-		for {
-			res, err = fetchDiscordEndpoint(client, token, "GET", fmt.Sprintf("https://discordapp.com/api/v6/users/%s/relationships", relationship.ID))
-			if err != nil {
-				return nil, nil, err
-			}
-
-			data, err := io.ReadAll(res.Body)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			if err := json.Unmarshal(data, &theirRelationships); err == nil {
-				break
-			}
-
-			if !bytes.Contains(data, []byte("retry_after")) {
-				return nil, nil, err
-			}
-
-			rateLimit := RateLimit{}
-			if err := json.Unmarshal(data, &rateLimit); err != nil {
-				return nil, nil, err
-			}
-
-			backOff = min(backOff+time.Millisecond*100, time.Second*5)
-			limit := time.Millisecond*time.Duration(rateLimit.RetryAfter*1000) + backOff
-			time.Sleep(limit)
-		}
-
-		for _, theirRelationship := range theirRelationships {
-			graph[UserID(relationship.ID)] = append(graph[UserID(relationship.ID)], UserID(theirRelationship.ID))
-		}
-		res.Body.Close()
-	}
-
-	return graph, myRelationships, nil
-}
-
-func buildGraph(m map[UserID][]UserID, myRelationships []Relationship) *dot.Graph {
-	relationships := map[UserID]User{}
-	for _, v := range myRelationships {
-		if v.Type != 1 {
-			continue
-		}
-
-		relationships[UserID(v.ID)] = v.User
-	}
-
-	g := dot.NewGraph(dot.Directed)
-	g.Attrs("concentrate", "true")
-	for k, v := range m {
-		if _, ok := relationships[k]; !ok {
-			continue
-		}
-
-		if len(v) == 0 {
-			continue
-		}
-
-		fromNode := g.Node(string(k))
-		fromNode.Label(relationships[k].Username)
-		for _, to := range v {
-			toNode := g.Node(string(to))
-			toNode.Label(relationships[to].Username)
-			g.Edge(fromNode, toNode)
-		}
-	}
-	return g
-}
-
-func fetchDiscordEndpoint(client *http.Client, token, method, endpoint string) (*http.Response, error) {
-	req, err := http.NewRequest(method, endpoint, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("authorization", token)
-	return client.Do(req)
-}
-
-func min(a time.Duration, b time.Duration) time.Duration {
-	if a < b {
-		return a
-	}
-	return b
 }
