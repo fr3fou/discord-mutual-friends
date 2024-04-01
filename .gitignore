@@ -3,3 +3,4 @@ relationships.dot
 friends.json
 friends.go
 relationships.json
+build/bin
