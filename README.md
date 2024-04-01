@@ -26,6 +26,8 @@ You can then move around the 3D space using the following controls:
 - Mouse-wheel/Middle Click for zooming
 - Right Click for panning
 
+If you experience some kind of lag at first, just wait a few seconds – the graphing library I use has to perform some computations in the background.
+
 You can click on a friend / node and you'll focus on that user in particular – all your mutual connections with that person will be highlighted and the rest will be dimmed.
 
 ![image](https://github.com/fr3fou/discord-mutual-friends/assets/1344906/cf59ff4e-d006-4204-8726-d34a7f31a38b)
