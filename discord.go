@@ -131,8 +131,7 @@ func buildGraph(ctx context.Context, token string) (User, chan Event, error) {
 				for _, theirRelationship := range theirRelationships {
 					relationships = append(relationships, theirRelationship.ID)
 				}
-				ch <- Event{ID: relationship.ID, Relationships: relationships, Index: i, Total: len(friends)}
-				i++
+				ch <- Event{ID: relationship.ID, Relationships: relationships, Index: i + 1, Total: len(friends)}
 			}
 		}
 	}()
