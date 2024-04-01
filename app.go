@@ -57,5 +57,7 @@ func (a *App) Start(token string) (User, error) {
 }
 
 func (a *App) Stop() {
-	a.fetchingCancel()
+	if a.fetchingCancel != nil {
+		a.fetchingCancel()
+	}
 }
