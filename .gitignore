@@ -4,3 +4,4 @@ friends.json
 friends.go
 relationships.json
 build/bin
+.DS_Store
