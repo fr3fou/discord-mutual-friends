@@ -10,7 +10,7 @@ https://github.com/fr3fou/discord-mutual-friends/assets/1344906/890b1146-5829-4a
 
 ## Usage
 
-Run the binaries from the release page on GitHub. Currently only macOS and Windows builds are available but will have Linux binaries soon. For now, if you're running on Linux, you can [build it yourself](#building-yourself).
+Run the binaries from the [release page on GitHub](https://github.com/fr3fou/discord-mutual-friends/releases). Currently only macOS and Windows builds are available but will have Linux binaries soon. For now, if you're running on Linux, you can [build it yourself](#building-yourself).
 
 After running it, you'll be greeted with the following screen:
 
