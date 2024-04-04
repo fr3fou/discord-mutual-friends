@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"strings"
 )
 
 // App struct
@@ -42,7 +43,7 @@ func (a *App) shutdown(ctx context.Context) {
 func (a *App) Start(token string) (User, error) {
 	ctx, cancel := context.WithCancel(a.ctx)
 	a.fetchingCancel = cancel
-	me, ch, err := buildGraph(ctx, token)
+	me, ch, err := buildGraph(ctx, strings.TrimSpace(token))
 	if err != nil {
 		return User{}, err
 	}

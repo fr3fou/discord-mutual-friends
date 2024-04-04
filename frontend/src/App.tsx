@@ -43,6 +43,7 @@ const physics = {
 type Status = "waiting" | "loading" | "finished"
 
 function App() {
+  const [error, setError] = useState<Error>()
   const [token, setToken] = useState<string>("")
   const [status, setStatus] = useState<Status>("waiting")
   const [me, setMe] = useState<main.User>()
@@ -100,7 +101,8 @@ function App() {
 
   const onStartClick = async () => {
     if (!token) return
-    const response = await Start(token)
+    const response = await Start(token).catch((error) => setError(error))
+    if (!response) return
     setMe(response)
     setGraphData((graphData) => ({
       links: [],
@@ -165,6 +167,7 @@ function App() {
         <h1 className="content-center text-2xl font-bold text-gray-900 dark:text-white">
           Friends Visualiser
         </h1>
+        {error && <h1 className="text-xl text-red-500">{`${error}`}</h1>}
         {status === "loading" && (
           <div className="self-center">
             <h1 className="m-0 content-center text-center text-2xl text-white">

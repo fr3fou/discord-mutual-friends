@@ -50,6 +50,10 @@ func fetchMe(token string) (User, error) {
 		return User{}, err
 	}
 
+	if res.StatusCode == http.StatusUnauthorized {
+		return User{}, fmt.Errorf("Invalid token, can't connect to Discord.")
+	}
+
 	var user User
 	if err := json.NewDecoder(res.Body).Decode(&user); err != nil {
 		return User{}, nil
