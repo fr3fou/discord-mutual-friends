@@ -56,3 +56,10 @@ Building yourself requires having Go, Wails, Node.js installed on your system.
 0. Install the wails CLI by running `./scripts/install-wails-cli.sh`
 1. Install frontend dependencies using `yarn` after cd-ing into the `frontend/` folder
 2. Run `wails dev` or `wails build` in the root of the project
+
+## Disclaimer
+
+I do not take any responsibility for what happens to your Discord account. Using
+this application or anything not the official client and your 2 hands can result
+in a ban off the platform. **USE AT YOUR OWN RISK.** The showcased demo at the 
+beginning of the repo uses generated data with random avatars.
